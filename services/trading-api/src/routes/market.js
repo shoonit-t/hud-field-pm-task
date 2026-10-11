@@ -14,6 +14,7 @@ const {
   listQuotes,
   listSectors,
 } = require('../market/repository.js');
+const { getRecentTrades } = require('../market/recentTrades.js');
 const { marketTicker } = require('../market/ticker.js');
 const { ApiError } = require('../middleware/errors.js');
 const { requireAuth } = require('../middleware/requireAuth.js');
@@ -297,6 +298,23 @@ marketRouter.get('/stocks/:symbol/history', async (req, res, next) => {
     }
 
     res.json(await getHistory(req.params.symbol, range));
+  } catch (error) {
+    next(error);
+  }
+});
+
+/** The latest executions in one stock, newest first. See recentTrades.js. */
+marketRouter.get('/stocks/:symbol/trades', async (req, res, next) => {
+  try {
+    if (!(await isKnownSymbol(req.params.symbol))) {
+      throw new ApiError(`Unknown symbol "${req.params.symbol}".`, { status: 404, code: 'unknown_symbol' });
+    }
+
+    const parsed = Number.parseInt(req.query.limit ?? '', 10);
+    const limit = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), 200) : 50;
+    const symbol = req.params.symbol.toUpperCase();
+
+    res.json({ symbol, trades: await getRecentTrades(symbol, { limit }) });
   } catch (error) {
     next(error);
   }
