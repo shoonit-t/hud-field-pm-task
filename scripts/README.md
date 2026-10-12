@@ -62,7 +62,7 @@ node scripts/part2b/capture.mjs "<jaeger url>" out.png --clip .SearchResults--he
 python scripts/part2b/mock/build.py query-monitoring-mock.html                             # per-query page built from recorded runs
 ```
 
-The mock page reads three runs by label: `trades-cycle` (the `trades` traffic sent with one label, half before `index-drop.sql` and half after), `summary`, and `orders-mixed2`.
+The mock page reads three runs by label: `trades-cycle` (the `trades` traffic sent with one label, half before `index-drop.sql` and half after), `summary`, and `orders-mixed2`. To feed it, send the lock traffic with that label: `bash scripts/part2b/traffic.sh mixed orders-mixed2`.
 
 ## Part 3: event-loop busy time on client spans
 
