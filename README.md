@@ -15,6 +15,10 @@ The database sets itself up on first boot (~30–60s). Then:
 
 Hitting trouble with setup or machine resources? **Contact us** — don't lose time on it.
 
+## Assignment work
+
+The branch `part2b-db-slowness` adds the slow-query cases and the Part 3 test. Commands to reproduce them: [scripts/README.md](scripts/README.md).
+
 ## Handy commands
 
 ```bash
