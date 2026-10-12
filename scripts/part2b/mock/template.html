@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Query monitoring mock</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f4f4f2; --surface-1: #fcfcfb; --surface-2: #f0efec; --line: #dddcd6;
+    --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #7a7973;
+    --series-1: #2a78d6; --series-2: #eb6834;
+    --have: #1b7a4b; --have-bg: #e3f3ea; --need: #8a5a00; --need-bg: #fbefd2;
+    --accent: #2a78d6; --row-hover: #eef3fb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #121211; --surface-1: #1a1a19; --surface-2: #242423; --line: #3a3a37;
+      --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #8f8e86;
+      --series-1: #3987e5; --series-2: #d95926;
+      --have: #6fd3a0; --have-bg: #17382a; --need: #f0c66a; --need-bg: #3d3113;
+      --accent: #3987e5; --row-hover: #202a38;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--text-primary);
+         font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 16px; }
+  .notice { background: var(--need-bg); color: var(--text-primary); border: 1px solid var(--line);
+            border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; }
+  .notice b { color: var(--need); }
+  h1 { font-size: 20px; margin: 0 0 2px; }
+  .sub { color: var(--text-secondary); margin: 0 0 14px; }
+  .card { background: var(--surface-1); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 14px; }
+  .card h2 { font-size: 15px; margin: 0; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-secondary); white-space: nowrap; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tr.pick { cursor: pointer; }
+  tr.pick:hover, tr.pick.on { background: var(--row-hover); }
+  code, .sql { font: 12.5px/1.5 ui-monospace, Consolas, monospace; }
+  .sql { white-space: pre-wrap; word-break: break-word; }
+  .name { font-weight: 600; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 600; border-radius: 10px; padding: 1px 8px; white-space: nowrap; }
+  .have { color: var(--have); background: var(--have-bg); }
+  .need { color: var(--need); background: var(--need-bg); }
+  .insight { display: inline-block; border: 1px dashed var(--need); border-radius: 6px; padding: 2px 8px; font-size: 12px; margin-top: 4px; }
+  .legend-row { display: flex; flex-wrap: wrap; gap: 14px; padding: 10px 14px; color: var(--text-secondary); font-size: 13px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 2px; padding: 0 8px; border-bottom: 1px solid var(--line); }
+  .tab { border: 0; background: none; color: var(--text-secondary); font: inherit; padding: 10px 12px; cursor: pointer;
+         border-bottom: 2px solid transparent; }
+  .tab.on { color: var(--text-primary); border-bottom-color: var(--accent); font-weight: 600; }
+  .pane { padding: 14px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .tile { background: var(--surface-2); border-radius: 8px; padding: 10px 12px; }
+  .tile .k { font-size: 12px; color: var(--text-secondary); }
+  .tile .v { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .chart-title { font-weight: 600; margin: 0 0 2px; }
+  .chart-note { color: var(--text-secondary); font-size: 13px; margin: 0 0 6px; }
+  .key { display: flex; gap: 16px; font-size: 13px; color: var(--text-secondary); margin: 4px 0 8px; }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+  svg { display: block; width: 100%; height: auto; }
+  .axis { stroke: var(--line); stroke-width: 1; }
+  .tick { fill: var(--text-muted); font-size: 11px; }
+  #tip { position: fixed; pointer-events: none; background: var(--text-primary); color: var(--surface-1);
+         padding: 6px 9px; border-radius: 6px; font-size: 12px; line-height: 1.4; display: none; z-index: 5; max-width: 260px; }
+  .plan { background: var(--surface-2); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
+  .plan pre { margin: 6px 0 0; white-space: pre-wrap; font: 12.5px/1.5 ui-monospace, Consolas, monospace; }
+  .muted { color: var(--text-muted); }
+  a { color: var(--accent); }
+  .explain { color: var(--text-secondary); font-size: 13px; margin: 0 0 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="notice">
+    <b>Mock, not a real product.</b> The layout is modelled on database-monitoring tools, following the screens
+    in Datadog's public documentation. The numbers are from this project's three slow-query cases.
+    Every field is marked by where it comes from.
+  </div>
+
+  <h1>Query monitoring</h1>
+  <p class="sub">One row per query, grouped by its SQL text. Select a row to open it.</p>
+
+  <div class="card">
+    <div class="legend-row">
+      <span><span class="badge have">from our traces</span> calculated from OpenTelemetry trace data we already have</span>
+      <span><span class="badge need">needs the database</span> not in the traces; shown from running EXPLAIN by hand, or illustrative</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Queries</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr>
+          <th>Query</th>
+          <th class="num">Count <span class="badge have">traces</span></th>
+          <th class="num">Total time <span class="badge have">traces</span></th>
+          <th class="num">Typical <span class="badge have">traces</span></th>
+          <th class="num">Slowest <span class="badge have">traces</span></th>
+          <th class="num">Rows read <span class="badge need">database</span></th>
+        </tr></thead>
+        <tbody id="list"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" id="detail"></div>
+</div>
+<div id="tip"></div>
+
+<script>
+const DATA = __DATA__;
+
+const $ = (sel, root = document) => root.querySelector(sel);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const ms = (v) => (v >= 100 ? v.toFixed(0) : v >= 10 ? v.toFixed(1) : v.toFixed(2)) + ' ms';
+const median = (a) => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
+const tip = $('#tip');
+
+let current = 0;
+let tab = 'metrics';
+
+function renderList() {
+  $('#list').innerHTML = DATA.queries.map((q, i) => {
+    const d = q.runs.map((r) => r.d);
+    return `<tr class="pick ${i === current ? 'on' : ''}" data-i="${i}">
+      <td><div class="name">${esc(q.title)}</div><div class="sql muted">${esc(q.short)}</div>
+          ${q.insight ? `<div class="insight">${esc(q.insight)} <span class="badge need">database</span></div>` : ''}</td>
+      <td class="num">${d.length}</td>
+      <td class="num">${ms(d.reduce((a, b) => a + b, 0))}</td>
+      <td class="num">${ms(median(d))}</td>
+      <td class="num">${ms(Math.max(...d))}</td>
+      <td class="num">${esc(q.rowsRead)}</td></tr>`;
+  }).join('');
+  document.querySelectorAll('tr.pick').forEach((tr) => tr.addEventListener('click', () => {
+    current = Number(tr.dataset.i); tab = 'metrics'; renderList(); renderDetail();
+  }));
+}
+
+function chart(q) {
+  const W = 1100, H = 260, L = 56, R = 16, T = 12, B = 30;
+  const runs = q.runs;
+  const max = Math.max(...runs.map((r) => r.d)) * 1.08;
+  const x = (i) => L + (runs.length === 1 ? 0.5 : i / (runs.length - 1)) * (W - L - R);
+  const y = (v) => H - B - (v / max) * (H - T - B);
+  const step = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500].find((s) => max / s <= 5) ?? 1000;
+  let ticks = '';
+  for (let v = 0; v <= max; v += step) {
+    ticks += `<line class="axis" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" opacity="${v === 0 ? 1 : 0.5}"/>
+              <text class="tick" x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${v} ms</text>`;
+  }
+  const dots = runs.map((r, i) =>
+    `<circle cx="${x(i).toFixed(1)}" cy="${y(r.d).toFixed(1)}" r="5" fill="var(--series-${r.g + 1})"
+       stroke="var(--surface-1)" stroke-width="2" data-i="${i}"/>`).join('');
+  const key = q.groups.length > 1
+    ? `<div class="key">${q.groups.map((g, i) => `<span><span class="swatch" style="background:var(--series-${i + 1})"></span>${esc(g)}</span>`).join('')}</div>`
+    : '';
+  return `${key}<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Duration of each execution">
+    ${ticks}<text class="tick" x="${L}" y="${H - 8}">first execution</text>
+    <text class="tick" x="${W - R}" y="${H - 8}" text-anchor="end">last execution</text>${dots}</svg>`;
+}
+
+const PANES = {
+  metrics(q) {
+    const d = q.runs.map((r) => r.d);
+    const tiles = [['Executions', d.length], ['Typical (median)', ms(median(d))], ['Fastest', ms(Math.min(...d))], ['Slowest', ms(Math.max(...d))]]
+      .map(([k, v]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+    const groups = q.groups.length > 1 ? `<div class="scroll"><table><thead><tr><th>Group</th><th class="num">Executions</th>
+      <th class="num">Typical</th><th class="num">Range</th></tr></thead><tbody>${q.groups.map((g, gi) => {
+        const v = q.runs.filter((r) => r.g === gi).map((r) => r.d);
+        return `<tr><td><span class="swatch" style="background:var(--series-${gi + 1})"></span>${esc(g)}</td><td class="num">${v.length}</td>
+          <td class="num">${ms(median(v))}</td><td class="num">${ms(Math.min(...v))} to ${ms(Math.max(...v))}</td></tr>`;
+      }).join('')}</tbody></table></div>` : '';
+    return `<p class="explain"><span class="badge have">from our traces</span> Each dot is one execution of this query, in the order they ran.
+      Hover a dot for its details.</p>
+      <div class="tiles">${tiles}</div>
+      <p class="chart-title">Duration of each execution</p><p class="chart-note">${esc(q.chartNote)}</p>
+      ${chart(q)}${groups}`;
+  },
+  plans(q) {
+    return `<p class="explain"><span class="badge need">needs the database</span> The trace does not record how the database ran the query.
+      These plans come from running <code>EXPLAIN ANALYZE</code> in the database by hand.</p>` +
+      q.plans.map((p) => `<div class="plan"><b>${esc(p.name)}</b> <span class="muted">${esc(p.when)}</span><pre>${esc(p.text)}</pre></div>`).join('');
+  },
+  samples(q) {
+    const rows = [...q.runs].sort((a, b) => b.d - a.d).slice(0, 8).map((r) => `<tr>
+      <td class="num">${ms(r.d)}</td><td>${esc(r.p ?? '')}</td><td>${esc(q.groups[r.g])}</td>
+      <td><a href="http://localhost:16686/trace/${r.t}" target="_blank" rel="noopener">${r.t.slice(0, 8)}…</a></td></tr>`).join('');
+    return `<p class="explain">The eight slowest executions. ${esc(q.paramNote)}</p>
+      <div class="scroll"><table><thead><tr><th class="num">Duration <span class="badge have">traces</span></th>
+      <th>${esc(q.paramLabel)}</th><th>Group</th><th>Trace <span class="badge have">traces</span></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  },
+  blocking(q) {
+    if (!q.blocking) {
+      return `<p class="explain"><span class="badge need">needs the database</span> No blocking recorded for this query.</p>`;
+    }
+    return `<p class="explain"><span class="badge need">needs the database</span> ${esc(q.blocking.note)}</p>
+      <div class="scroll"><table><thead><tr><th>Place in queue</th><th class="num">Statement duration <span class="badge have">traces</span></th>
+      <th>Waited on <span class="badge need">database</span></th><th>Blocked by <span class="badge need">database</span></th></tr></thead>
+      <tbody>${q.blocking.rows.map((r) => `<tr><td>${esc(r[0])}</td><td class="num">${esc(r[1])}</td><td>${esc(r[2])}</td><td>${esc(r[3])}</td></tr>`).join('')}</tbody></table></div>`;
+  },
+  callers(q) {
+    return `<p class="explain"><span class="badge have">from our traces</span> Which request runs this query. A database-side tool
+      has to link back to tracing to know this; traces have it built in.</p>
+      <div class="scroll"><table><thead><tr><th>Service</th><th>Endpoint</th><th>Position in the request</th></tr></thead>
+      <tbody><tr><td>trading-api</td><td><code>${esc(q.endpoint)}</code></td><td>${esc(q.position)}</td></tr></tbody></table></div>`;
+  },
+};
+const TAB_NAMES = { metrics: 'Metrics', plans: 'Explain plans', samples: 'Samples', blocking: 'Blocking activity', callers: 'Calling services' };
+
+function renderDetail() {
+  const q = DATA.queries[current];
+  $('#detail').innerHTML = `<h2>${esc(q.title)}</h2>
+    <div class="pane" style="padding-bottom:0"><div class="sql">${esc(q.sql)}</div></div>
+    <div class="tabs">${Object.entries(TAB_NAMES).map(([k, v]) => `<button class="tab ${k === tab ? 'on' : ''}" data-t="${k}">${v}</button>`).join('')}</div>
+    <div class="pane">${PANES[tab](q)}</div>`;
+  document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => { tab = b.dataset.t; renderDetail(); }));
+  document.querySelectorAll('circle[data-i]').forEach((c) => {
+    c.addEventListener('mousemove', (e) => {
+      const r = q.runs[Number(c.dataset.i)];
+      tip.innerHTML = `<b>${ms(r.d)}</b><br>${esc(q.groups[r.g])}${r.p ? `<br>${esc(q.paramLabel)}: ${esc(r.p)}` : ''}`;
+      tip.style.display = 'block';
+      tip.style.left = Math.min(e.clientX + 14, innerWidth - 270) + 'px';
+      tip.style.top = e.clientY + 14 + 'px';
+    });
+    c.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+  });
+}
+
+renderList();
+renderDetail();
+</script>
+</body>
+</html>

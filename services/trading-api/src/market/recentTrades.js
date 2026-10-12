@@ -27,4 +27,36 @@ async function getRecentTrades(symbol, { limit = 50 } = {}) {
   }));
 }
 
-module.exports = { getRecentTrades };
+/**
+ * Six months of activity in one stock: how many trades, how much volume, and the range
+ * of prices paid.
+ *
+ * Unlike the list above, this cannot stop at fifty rows. An aggregate has to read every
+ * trade it summarises, so its cost follows how actively the stock trades — and stocks
+ * are not traded equally.
+ */
+async function getTradeSummary(symbol) {
+  const { rows } = await query(
+    `SELECT count(*)::int          AS trades,
+            COALESCE(sum(quantity), 0)::bigint AS volume,
+            avg(price)             AS average_price,
+            min(price)             AS low,
+            max(price)             AS high
+     FROM trades
+     WHERE symbol = $1
+       AND executed_at >= now() - interval '180 days'`,
+    [String(symbol).toUpperCase()],
+  );
+
+  const row = rows[0];
+  return {
+    trades: row.trades,
+    volume: row.volume,
+    averagePrice: row.average_price === null ? null : Math.round(row.average_price * 10000) / 10000,
+    low: row.low,
+    high: row.high,
+    periodDays: 180,
+  };
+}
+
+module.exports = { getRecentTrades, getTradeSummary };

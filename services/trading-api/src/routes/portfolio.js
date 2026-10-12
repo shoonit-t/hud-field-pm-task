@@ -8,7 +8,6 @@ const {
   getPortfolio,
   getTransactions,
 } = require('../portfolio/portfolioService.js');
-const { getLots } = require('../portfolio/lotsService.js');
 const { getRealizedBreakdown } = require('../portfolio/realizedService.js');
 
 const portfolioRouter = Router();
@@ -32,15 +31,6 @@ portfolioRouter.get('/', async (req, res, next) => {
 portfolioRouter.get('/allocation', async (req, res, next) => {
   try {
     res.json(await getAllocation(req.user));
-  } catch (error) {
-    next(error);
-  }
-});
-
-/** Holdings broken down by purchase lot. See lotsService.js. */
-portfolioRouter.get('/lots', async (req, res, next) => {
-  try {
-    res.json(await getLots(req.user));
   } catch (error) {
     next(error);
   }
