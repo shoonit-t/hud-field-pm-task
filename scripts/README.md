@@ -24,6 +24,8 @@ Every request the traffic script sends carries `User-Agent: part2b-<label>`, so 
 
 Durations below were measured on one laptop and will differ elsewhere. The ratios are the point.
 
+If requests start failing with `timeout exceeded when trying to connect`, run `docker compose restart trading-api`. The service's transaction helper (`src/db/pool.js`, unchanged from `main`) does not release its connection when it retries a cancelled statement, so a burst of cancelled fills can use up the pool.
+
 ## Part 2b: three slow queries
 
 ### 1. Missing index: always slow
