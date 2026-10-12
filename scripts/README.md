@@ -57,8 +57,10 @@ Jaeger operation `POST /`. 35 orders one at a time, and two bursts of six at the
 
 ```bash
 node scripts/part2b/capture.mjs "<jaeger url>" out.png --clip .SearchResults--header      # screenshot; Node 22+, Microsoft Edge
-python scripts/part2b/mock/build.py query-monitoring-mock.html                             # per-query page built from the runs above
+python scripts/part2b/mock/build.py query-monitoring-mock.html                             # per-query page built from recorded runs
 ```
+
+The mock page reads three runs by label: `trades-cycle` (the `trades` traffic sent with one label, half before `index-drop.sql` and half after), `summary`, and `orders-mixed2`.
 
 ## Part 3: event-loop busy time on client spans
 
