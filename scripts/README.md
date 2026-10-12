@@ -50,8 +50,13 @@ Jaeger operation `GET /stocks/:symbol/trades/summary`. Ten stocks in rotation: n
 ### 3. Lock contention: slow only when requests overlap
 
 ```bash
+docker compose stop load-generator      # see below
+sleep 60
 bash scripts/part2b/traffic.sh mixed orders-mixed
+docker compose start load-generator
 ```
+
+The script places its orders on the same ten accounts the load generator uses, and `fraud-service` refuses an account that places more than 10 orders in a minute (`TRADE_VELOCITY`, status 422). With the load generator running, some of the script's orders are refused before they reach the lock. Stopping it and waiting out the one-minute window gives a run where all 47 orders are filled.
 
 Jaeger operation `POST /`. 35 orders one at a time, and two bursts of six at the same moment on one account. The statement `SELECT id, cash FROM accounts WHERE id = $1 FOR UPDATE` takes 0.6 to 2.4 ms alone and 10 to 132 ms inside a burst. The service code is as shipped.
 
